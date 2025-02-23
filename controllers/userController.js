@@ -2,6 +2,7 @@ import User from "../models/userModel.js"; // Assuming user model is in the mode
 import jwt from "jsonwebtoken";
 import CryptoJS from "crypto-js";
 import { clearCookies } from "../services/cookieClear.js";
+import cloudinary from "cloudinary"
 import { deletePostsByUser } from "./postController.js";
 const SECRET_KEY = "supersecretkey"; // Change this to a secure key
 
@@ -187,16 +188,50 @@ export async function getUserBySelf(req, res) {
 // Update user by ID
 export async function updateUser(req, res) {
   try {
-    const encryptedPassword = CryptoJS.AES.encrypt(
-      req.body.password,
-      SECRET_KEY
-    ).toString();
-    const user = await User.findByIdAndUpdate(req.params.id, {...req.body,password:encryptedPassword}, {
-      new: true,
-    });
+    const user = await User.findByIdAndUpdate(req.params.id,req.body);
     if (!user) return res.status(404).json({ message: "User not found" });
     res.status(200).json(user);
   } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+}
+
+const cloud = cloudinary.v2
+cloud.config({
+  cloud_name: "dbugoc8ov", // 🔹 Replace with your actual cloud name
+  api_key: "286613335355767", // 🔹 Move this to an environment variable
+  api_secret: "UpXo2g32FCzF_wKoBPba8GAW41g", // ❌ Never hardcode secrets! Use process.env.CLOUDINARY_API_SECRET
+  secure: true,
+});
+
+export async function updateUserSelf(req, res) {
+  try {
+    const token = req.cookies.token;
+    const { id } = jwt.verify(token, SECRET_KEY);
+    console.log("req.files.profile_picture:    ", req.files.profile_picture);
+    
+    // If there is a file uploaded for the profile picture
+    if (req.files && req.files.profile_picture) {
+      const profilePic = req.files.profile_picture;
+
+      // Upload the profile picture to Cloudinary
+      const result = await cloudinary.uploader.upload(profilePic.tempFilePath, {
+        folder: 'user_profile_pics', // Optional: Specify a folder on Cloudinary
+      });
+
+      // Add the Cloudinary URL to the request body to update the user
+      req.body.profile_picture = result.secure_url; // Secure URL of the uploaded image
+    }
+
+    // Update the user with the new data (including the new profile picture URL if changed)
+    const user = await User.findByIdAndUpdate(id, req.body, { new: true });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Respond with the updated user data
+    res.status(200).json(user);
+  } catch (error) {
+    console.error("Error updating user:", error);
     res.status(400).json({ message: error.message });
   }
 }

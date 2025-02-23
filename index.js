@@ -16,7 +16,7 @@ import cookieParser from "cookie-parser"
 import jwt from "jsonwebtoken"
 import { verifyToken } from "./services/tokenVerification.js";
 import { verificationOfAuthority } from "./services/verificationOfAuthority.js";
-
+import fileUpload from 'express-fileupload';
 const SECRET_KEY = process.env.JWT_SECRET || "supersecretkey";
 
 
@@ -31,6 +31,12 @@ app.use(
   })
 );
 
+app.use(fileUpload(
+  {
+    useTempFiles: true,  // Store uploaded files in temp files
+    tempFileDir: '/tmp/', // You can choose a different directory
+  }
+))
 app.use(cookieParser());
 
 
