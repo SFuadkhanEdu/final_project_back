@@ -92,7 +92,9 @@ export async function loginUser(req, res) {
     }
 
     const foundUser = await User.findOne({ email });
-
+    console.log("body: ", req.body);
+    console.log("foundUser ", foundUser);
+    
     if (!foundUser) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -118,9 +120,10 @@ export async function loginUser(req, res) {
       "supersecretkey"
     );
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Secure in production
-      sameSite: "Strict"
+      httpOnly: true,   // Prevent JavaScript from accessing the cookie
+      secure: false,    // For local development, use false (use true in production for HTTPS)
+      sameSite: "Strict", // Prevent cross-site requests
+      path: "/"          // Make the cookie accessible throughout the app
     });
     res.status(200).json({ token, user: foundUser });
   } catch (error) {
@@ -188,7 +191,12 @@ export async function getUserBySelf(req, res) {
 // Update user by ID
 export async function updateUser(req, res) {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id,req.body);
+    const {password} = req.body
+    const encryptedPassword = CryptoJS.AES.encrypt(
+      password,
+      SECRET_KEY
+    ).toString();
+    const user = await User.findByIdAndUpdate(req.params.id,{...req.body,password:encryptedPassword});
     if (!user) return res.status(404).json({ message: "User not found" });
     res.status(200).json(user);
   } catch (error) {
@@ -241,22 +249,30 @@ export async function deleteUser(req, res) {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    deletePostsByUser(user_id)
+    deletePostsByUser(req.params.id)
     res.status(200).json({ message: "User deleted successfully" });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 }
 
-export function logoutUser(req,res) {
+export function logoutUser(req, res) {
   try {
-    res.clearCookie("token", { path: "/api" });
+    // Clear the cookie by matching the path and other options
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: false, // Make sure this matches the original setting
+      sameSite: "Strict", // Same as when setting the cookie
+      path: "/" // Path should match the original cookie's path
+    });
 
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
+    console.error("Logout error:", error);
     res.status(400).json({ message: error.message });
   }
 }
+
 
 export function getRole(req, res) {
   const token = req.cookies.token; // Assuming the token is stored as an HTTP-only cookie

@@ -139,7 +139,8 @@ export async function deletePostsByUser(user_id) {
     const posts = await Post.find({ user_id });
 
     if (posts.length === 0) {
-      return res.status(404).json({ message: "No posts found for this user" });
+      console.log("No posts found for this user");
+      return;
     }
 
     // Delete all posts from the database
@@ -154,8 +155,11 @@ export async function deletePostsByUser(user_id) {
         });
       }
     }
-    console.log(posts.length+ " posts deleted successfully");
+
+    console.log(`${posts.length} posts deleted successfully`);
+
   } catch (error) {
-    res.status(500).json({ message: "Error deleting posts", error: error.message });
+    console.error(error);
+    throw new Error("Error deleting posts");
   }
 }
